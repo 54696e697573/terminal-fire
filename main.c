@@ -10,9 +10,8 @@ volatile bool exit_signal = false;
 size_t width;
 size_t height;
 size_t max;
-char *grid = NULL;
+struct vector *grid = NULL;
 char *buffer = NULL;
-char *frame = NULL;
 static void realloc_assert(void *temp) {
     if (!temp) {
         fprintf(stderr, "Error while reallocating grid due to resizing.");
@@ -30,19 +29,13 @@ static void resize(void) {
     max = width * height;
     
     void *temp;
-    temp = realloc(grid, max);
+    temp = realloc(grid, sizeof(struct vector[max]));
     realloc_assert(temp);
     grid = temp;
 
-    temp = realloc(buffer, max);
+    temp = realloc(buffer, sizeof(char[max]));
     realloc_assert(temp);
     buffer = temp;
-
-    temp = realloc(frame, max + 1);
-    realloc_assert(temp);
-    frame = temp;
-
-    frame[max] = '\0';
 
     if (max > past_max) {
         memset(grid + past_max, 0, max - past_max);
@@ -95,7 +88,6 @@ int main() {
 
     free(grid);
     free(buffer);
-    free(frame);
 
     return 0;
 }

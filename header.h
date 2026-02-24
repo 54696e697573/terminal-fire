@@ -21,8 +21,15 @@ extern double deltatime;
 extern size_t width;
 extern size_t height;
 extern size_t max;
-extern char *grid;
+
+struct vector {
+    char x;
+    char y;
+};
+
+extern struct vector *grid;
 extern char *buffer;
-extern char *frame;
+
+extern const char VECTOR_CHARACTERS[];
 
 #endif
