@@ -11,7 +11,8 @@ size_t width;
 size_t height;
 size_t max;
 struct vector *grid = NULL;
-char *buffer = NULL;
+struct vector *buffer = NULL;
+char *frame = NULL;
 static void realloc_assert(void *temp) {
     if (!temp) {
         fprintf(stderr, "Error while reallocating grid due to resizing.");
@@ -29,16 +30,20 @@ static void resize(void) {
     max = width * height;
     
     void *temp;
-    temp = realloc(grid, sizeof(struct vector[max]));
+    temp = realloc(grid, max * sizeof(struct vector));
     realloc_assert(temp);
     grid = temp;
 
-    temp = realloc(buffer, sizeof(char[max]));
+    temp = realloc(buffer, max * sizeof(struct vector));
     realloc_assert(temp);
     buffer = temp;
 
+    temp = realloc(frame, max * 12 * sizeof(char));
+    realloc_assert(temp);
+    frame = temp;
+
     if (max > past_max) {
-        memset(grid + past_max, 0, max - past_max);
+        memset(grid + past_max, 0, (max - past_max) * sizeof(struct vector));
     }
 }
 static void set_resize_signal(int signal) {
@@ -73,6 +78,8 @@ int main() {
     const double target_fps = 60.0;
     double target_time = 1.0 / target_fps;
 
+    write(STDOUT_FILENO, "\033[?25l", 6);
+
     while (!exit_signal) {
         double start = get_time();
         if (resize_signal) resize();
@@ -86,8 +93,11 @@ int main() {
         deltatime = frame_time > target_time ? frame_time : target_time;
     }
 
+    write(STDOUT_FILENO, "\033[?25h", 6);
+
     free(grid);
     free(buffer);
+    free(frame);
 
     return 0;
 }

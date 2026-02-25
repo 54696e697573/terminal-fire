@@ -2,6 +2,7 @@
 #define HEADER_H
 
 #include <assert.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <signal.h>
 #include <stdio.h>
@@ -23,12 +24,14 @@ extern size_t height;
 extern size_t max;
 
 struct vector {
-    char x;
-    char y;
+    int x;
+    int y;
+    unsigned int heat;
 };
 
 extern struct vector *grid;
-extern char *buffer;
+extern struct vector *buffer;
+extern char *frame;
 
 extern const char VECTOR_CHARACTERS[];
 
