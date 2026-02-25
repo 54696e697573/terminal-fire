@@ -1,19 +1,37 @@
 #include "header.h"
 
-#define PROJECT_ITERATIONS 4
-#define ADVECTION_LENGTH 0.01
+#define PROJECT_ITERATIONS 64
+#define ADVECTION_LENGTH 0.0001
+#define HEAT_DISPERSION 0.25
+#define DISPERSE_ITERATIONS 4
+#define BOUYANCY 1
 
 
 
 static inline void apply_forces(void) {
-    grid[(width >> 1) + (max >> 1)].x = 0;
-    grid[(width >> 1) + (max >> 1)].y = 0;
+    for (int index = -5; index <= 5; index++) {
+        grid[max - (width >> 1) + index].heat = 10000;
+    }
+
+    for (int index = 0; index < max; index++) {
+        grid[index].y -= (int)(grid[index].heat * deltatime * BOUYANCY);
+    }
+
+    for (int index = 0; index < width; index++) {
+        grid[index] = (struct vector){ 0, 0, 0, };
+    }
+    for (int index = 0; index < max; index += width) {
+        grid[index] = (struct vector){ 0, 0, 0, };
+    }
+    for (int index = width - 1; index < max; index += width) {
+        grid[index] = (struct vector){ 0, 0, 0, };
+    }
 }
 
 static inline void project(void) {
     for (size_t index = 0; index < max; index++) {
         struct vector * const this = grid + index;
-        struct vector * const down = grid + ((index + width) % max);
+        struct vector * const down = buffer + (index + width > max ? index : index + width);
         struct vector * const right = grid + ((index + 1) % max);
 
         long long divergence = (
@@ -35,8 +53,8 @@ static inline void advect(void) {
     for (int index = 0; index < max; index++) {
         struct vector *this = grid + index;
         size_t new_index = (
-            index -
-            (int)(ADVECTION_LENGTH * deltatime * this->x) - 
+            index +
+            (int)(ADVECTION_LENGTH * deltatime * this->x) +
             (int)( ADVECTION_LENGTH * deltatime * this->y * width)
         ) % max;
 
@@ -50,8 +68,8 @@ static inline char get_character(int x, int y) {
     if (x == 0 && y == 0) return ' ';
     int abs_x = abs(x);
     int abs_y = abs(y);
-    if (abs_x > 2 * abs_y) return '=';
-    if (abs_y > 2 * abs_x) return '|';
+    if (abs_x > 2 * abs_y) return x > 0 ? '>' : '<';
+    if (abs_y > 2 * abs_x) return y > 0 ? 'v' : '^';
     if ((x > 0) == (y > 0)) return '/';
     return '\\';
 }
@@ -101,9 +119,32 @@ static inline void draw(void) {
     write(STDOUT_FILENO, "\033[0m", 4);
 }
 
+static inline void disperse(void) {
+    memcpy(buffer, grid, max * sizeof(struct vector));
+    for (int index = 0; index < max; index++) {
+        struct vector * const this = grid + index;
+        struct vector * const up = buffer + ((index - width + max) % max);
+        struct vector * const right = buffer + ((index + 1) % max);
+        struct vector * const down = buffer + (index + width > max ? index : index + width);
+        struct vector * const left = buffer + ((index - 1 + max) % max);
+        
+        const int heat_out = (int)(this->heat * HEAT_DISPERSION);
+        buffer[index].heat = this->heat - heat_out;
+        up->heat += heat_out / 4;
+        right->heat += heat_out / 4;
+        down->heat += heat_out / 4;
+        left->heat += heat_out / 4;
+    }
+    memcpy (grid, buffer, max * sizeof(struct vector));
+}
+
 void tick(void) {
-    apply_forces();
-    for (int iter = 0; iter < PROJECT_ITERATIONS; iter++) project();
+    for (int iter = 0; iter < PROJECT_ITERATIONS; iter++) {
+        project();
+        apply_forces();
+    }
+    for (int iter = 0; iter < DISPERSE_ITERATIONS; iter++) disperse();
     advect();
+
     draw();
 }
