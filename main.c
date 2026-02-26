@@ -4,6 +4,8 @@
 
 
 
+bool ARROWS = false;
+
 volatile bool resize_signal = true;
 volatile bool exit_signal = false;
 
@@ -69,7 +71,11 @@ static void exit_program(int signal) {
 }
 
 double deltatime = 0.0;
-int main() {
+int main(int argc, char *argv[]) {
+    for (int index = 1; index < argc; index++) {
+        if (strcmp(argv[index], "-a") == 0) ARROWS = true;
+    }
+
     assert(signal(SIGWINCH, set_resize_signal) == 0);
     assert(signal(SIGINT, exit_program) == 0);
 

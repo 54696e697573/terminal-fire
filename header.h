@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include <limits.h>
+#include <math.h>
 #include <stdbool.h>
 #include <signal.h>
 #include <stdio.h>
@@ -24,15 +25,15 @@ extern size_t height;
 extern size_t max;
 
 struct vector {
-    int x;
-    int y;
-    unsigned int heat;
+    float x;
+    float y;
+    float heat;
 };
 
 extern struct vector *grid;
 extern struct vector *buffer;
 extern char *frame;
 
-extern const char VECTOR_CHARACTERS[];
+extern bool ARROWS;
 
 #endif
