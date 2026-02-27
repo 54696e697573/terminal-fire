@@ -40,7 +40,7 @@ static void resize(void) {
     realloc_assert(temp);
     buffer = temp;
 
-    temp = realloc(frame, max * 12 * sizeof(char));
+    temp = realloc(frame, max * 14 * sizeof(char));
     realloc_assert(temp);
     frame = temp;
 
@@ -84,14 +84,21 @@ int main(int argc, char *argv[]) {
     const double target_fps = 60.0;
     double target_time = 1.0 / target_fps;
 
-    write(STDOUT_FILENO, "\033[?25l", 6);
+    struct termios original;
+    tcgetattr(STDIN_FILENO, &original);
+    struct termios new = original;
+    new.c_lflag &= ~ECHO;
+    new.c_lflag &= ~ICANON;
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &new);
+
+    write(STDOUT_FILENO, "\033[?1049h\033[?25l", 14);
 
     while (!exit_signal) {
         double start = get_time();
         if (resize_signal) resize();
         tick();
         double end = get_time();
-        
+
         double frame_time = end - start;
         double needed = target_time - frame_time;
         if (needed > 0) sleep_time(needed);
@@ -99,7 +106,9 @@ int main(int argc, char *argv[]) {
         deltatime = frame_time > target_time ? frame_time : target_time;
     }
 
-    write(STDOUT_FILENO, "\033[?25h", 6);
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &original);
+
+    write(STDOUT_FILENO, "\033[?1049l\033[?25h", 14);
 
     free(grid);
     free(buffer);

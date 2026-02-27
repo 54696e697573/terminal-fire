@@ -1,7 +1,7 @@
 #include "header.h"
 
 #define PROJECTION_ITERATIONS 32
-#define OVERRELAXATION 1.9
+#define OVERRELAXATION 1.75
 
 
 
@@ -47,17 +47,85 @@ static inline void project(void) {
 }
 
 static inline void advect(void) {
-    // WIP
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            struct vector * const this  = grid + index_grid(x, y);
+            struct vector * const right = grid + index_grid(x + 1, y);
+            struct vector * const down  = grid + index_grid(x, y + 1);
+
+            float x_velocity = (this->x - right->x) / 2;
+            float y_velocity = (this->y - down->y) / 2;
+            float x_offset = x + 0.5 + x_velocity * deltatime;
+            float y_offset = y + 0.5 + y_velocity * deltatime;
+            int x_floored = floorf(x_offset);
+            int y_floored = floorf(y_offset);
+            float in_x = x_offset - x_floored;
+            float in_y = y_offset - y_floored;
+
+            struct vector * const new_this  = grid + index_grid(x_floored, y_floored);
+            struct vector * const new_right = grid + index_grid(x_floored + 1, y_floored);
+            struct vector * const new_down  = grid + index_grid(x, y + 1);
+
+            
+        }
+    }
 }
 
-static inline char get_character(float x, float y) {
-    if (x == 0 && y == 0) return ' ';
-    float abs_x = fabsf(x);
-    float abs_y = fabsf(y);
-    if (abs_x > 2 * abs_y) return ARROWS ? (x > 0 ? '>' : '<') : '=';
-    if (abs_y > 2 * abs_x) return ARROWS ? (y > 0 ? 'v' : '^') : '|';
-    if ((x > 0) == (y > 0)) return '\\';
-    return '/';
+static inline void get_character(float x, float y, char *string) {
+    unsigned char character[3];
+    if (x == 0 && y == 0) {
+        character[0] = 0xE3; character[1] = 0x80; character[2] = 0x80;
+    }
+    else {
+        float abs_x = fabsf(x);
+        float abs_y = fabsf(y);
+        if (abs_x > 2 * abs_y) {
+            if (x > 0) {
+                character[0] = 0xE2;
+                character[1] = 0x86;
+                character[2] = 0x92;
+            } else {
+                character[0] = 0xE2;
+                character[1] = 0x86;
+                character[2] = 0x90;
+            }
+        }
+        else if (abs_y > 2 * abs_x) {
+            if (y > 0) {
+                character[0] = 0xE2;
+                character[1] = 0x86;
+                character[2] = 0x93;
+            } else {
+                character[0] = 0xE2;
+                character[1] = 0x86;
+                character[2] = 0x91;
+            }
+        }
+        else if ((x > 0) == (y > 0)) {
+            if (x > 0) {
+                character[0] = 0xE2;
+                character[1] = 0x86;
+                character[2] = 0x98;
+            }
+            else {
+                character[0] = 0xE2;
+                character[1] = 0x86;
+                character[2] = 0x96;
+            }
+        }
+        else {
+            if (x > 0) {
+                character[0] = 0xE2;
+                character[1] = 0x86;
+                character[2] = 0x97;
+            } else {
+                character[0] = 0xE2;
+                character[1] = 0x86;
+                character[2] = 0x99;
+            }
+        }
+    }
+    memcpy(string, character, 3);
 }
 static inline int get_color(float velocity) {
     int color = 232 + (int)(velocity / 100 * 24);
@@ -65,12 +133,13 @@ static inline int get_color(float velocity) {
 }
 static inline void draw(void) {
     for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width ; x++) {
+        for (int x = 0; x < width; x++) {
             const size_t index = index_grid(x, y);
             const float this_x = grid[index].x;
             const float this_y = grid[index].y;
 
-            const char character = get_character(this_x, this_y);
+            char character[3];
+            get_character(this_x, this_y, character);
             const int color = get_color(
                 fabsf(this_x) +
                 fabsf(this_y) +
@@ -78,26 +147,26 @@ static inline void draw(void) {
                 fabsf(grid[index_grid(x, y + 1)].y)
             );
 
-            char string[12];
-            memcpy(string, "\033[38;5;???m", 11);
+            char string[14];
+            memcpy(string, "\033[38;5;___m", 11);
             string[7] = '0' + (color / 100);
             string[8] = '0' + ((color % 100) / 10);
             string[9] = '0' + (color % 10);
-            string[11] = character;
+            memcpy(string + 11, character, 3);
 
-            memcpy(frame + 12 * index, string, 12);
+            memcpy(frame + 14 * index, string, 14);
         }
     }
-    
+
     write(STDOUT_FILENO, "\033[H\033[48;5;232m", 14);
-    write(STDOUT_FILENO, frame, max * 12);
+    write(STDOUT_FILENO, frame, max * 14 - 14);
     write(STDOUT_FILENO, "\033[0m", 4);
 }
 
 void tick(void) {
     apply_forces();
     project();
-    advect();
+    //advect();
 
     draw();
 }

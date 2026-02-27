@@ -11,6 +11,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
+#include <termios.h>
 #include <time.h>
 #include <unistd.h>
 
