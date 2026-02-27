@@ -72,60 +72,82 @@ static inline void advect(void) {
 }
 
 static inline void get_character(float x, float y, char *string) {
-    unsigned char character[3];
     if (x == 0 && y == 0) {
-        character[0] = 0xE3; character[1] = 0x80; character[2] = 0x80;
+        string[0] = 0xE3;
+        string[1] = 0x80;
+        string[2] = 0x80;
+        return;
     }
-    else {
-        float abs_x = fabsf(x);
-        float abs_y = fabsf(y);
+    float abs_x = fabsf(x);
+    float abs_y = fabsf(y);
+    if (ARROWS) {
         if (abs_x > 2 * abs_y) {
             if (x > 0) {
-                character[0] = 0xE2;
-                character[1] = 0x86;
-                character[2] = 0x92;
-            } else {
-                character[0] = 0xE2;
-                character[1] = 0x86;
-                character[2] = 0x90;
+                string[0] = 0xE2;
+                string[1] = 0x86;
+                string[2] = 0x92;
+                return;
             }
+            string[0] = 0xE2;
+            string[1] = 0x86;
+            string[2] = 0x90;
+            return;
         }
-        else if (abs_y > 2 * abs_x) {
+        if (abs_y > 2 * abs_x) {
             if (y > 0) {
-                character[0] = 0xE2;
-                character[1] = 0x86;
-                character[2] = 0x93;
-            } else {
-                character[0] = 0xE2;
-                character[1] = 0x86;
-                character[2] = 0x91;
+                string[0] = 0xE2;
+                string[1] = 0x86;
+                string[2] = 0x93;
             }
-        }
-        else if ((x > 0) == (y > 0)) {
+            string[0] = 0xE2;
+            string[1] = 0x86;
+            string[2] = 0x91;
+            return;
+        } else if ((x > 0) == (y > 0)) {
             if (x > 0) {
-                character[0] = 0xE2;
-                character[1] = 0x86;
-                character[2] = 0x98;
+                string[0] = 0xE2;
+                string[1] = 0x86;
+                string[2] = 0x98;
+                return;
             }
-            else {
-                character[0] = 0xE2;
-                character[1] = 0x86;
-                character[2] = 0x96;
-            }
+            string[0] = 0xE2;
+            string[1] = 0x86;
+            string[2] = 0x96;
+            return;
         }
-        else {
-            if (x > 0) {
-                character[0] = 0xE2;
-                character[1] = 0x86;
-                character[2] = 0x97;
-            } else {
-                character[0] = 0xE2;
-                character[1] = 0x86;
-                character[2] = 0x99;
-            }
+        if (x > 0) {
+            string[0] = 0xE2;
+            string[1] = 0x86;
+            string[2] = 0x97;
+            return;
         }
+        string[0] = 0xE2;
+        string[1] = 0x86;
+        string[2] = 0x99;
+        return;
     }
-    memcpy(string, character, 3);
+
+    if (abs_x > 2 * abs_y) {
+        string[0] = 0x5F;
+        string[1] = 0xCC;
+        string[2] = 0x80;
+        return;
+    }
+    if (abs_y > 2 * abs_x) {
+        string[0] = 0xE2;
+        string[1] = 0x94;
+        string[2] = 0x82;
+        return;
+    } else if ((x > 0) == (y > 0)) {
+        string[0] = 0xE2;
+        string[1] = 0x95;
+        string[2] = 0xB2;
+        return;
+    }
+    string[0] = 0xE2;
+    string[1] = 0x95;
+    string[2] = 0xB1;
+    return;
 }
 static inline int get_color(float velocity) {
     int color = 232 + (int)(velocity / 100 * 24);
