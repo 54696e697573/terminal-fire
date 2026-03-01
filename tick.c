@@ -2,6 +2,7 @@
 
 #define INJECTION_RADIUS 2
 #define INJECTION_FORCE 100.0f
+#define INJECTION_HEAT 10.0f
 #define MAX_VELOCITY 500.0f
 
 #define ADVECTION_DISTANCE 1.0f
@@ -21,6 +22,7 @@ static inline float clampf(float value, float min, float max) {
 static inline void apply_forces(void) {
     for (int y = -INJECTION_RADIUS; y <= INJECTION_RADIUS; y++) {
         grid[index_grid(1, height / 2 + y)].x = INJECTION_FORCE;
+        grid[index_grid(1, height / 2 + y)].heat = INJECTION_HEAT;
     }
 
     for (int y = 0; y < height; y++) {
@@ -48,8 +50,8 @@ static inline void advect(void) {
         for (int x = 0; x < width - 1; x++) {
             const float x_velocity = (grid[index_grid(x, y)].x + grid[index_grid(x + 1, y)].x) / 2;
             const float y_velocity = (grid[index_grid(x, y)].y + grid[index_grid(x, y + 1)].y) / 2;
-            const float old_x = clampf(x + 0.5 - x_velocity * deltatime * ADVECTION_DISTANCE, 0.5f, width - 3);
-            const float old_y = clampf(y + 0.5 - y_velocity * deltatime * ADVECTION_DISTANCE, 0.5f, height - 3);
+            const float old_x = clampf(x + 0.5 - x_velocity * deltatime * ADVECTION_DISTANCE, 0.0f, width - 2);
+            const float old_y = clampf(y + 0.5 - y_velocity * deltatime * ADVECTION_DISTANCE, 0.0f, height - 2);
 
             const float u_x = old_x;
             const float u_y = old_y - 0.5f;
@@ -81,6 +83,21 @@ static inline void advect(void) {
             buffer[index_grid(x + 1, y)].x += old_x_velocity / 2;
             buffer[index_grid(x, y)].y     += old_y_velocity / 2;
             buffer[index_grid(x, y + 1)].y += old_y_velocity / 2;
+
+            const float heat_x = old_x - 0.5f;
+            const float heat_y = old_y - 0.5f;
+            const int int_heat_x = (int)heat_x;
+            const int int_heat_y = (int)heat_y;
+
+            const float old_heat = bilinearf(
+                grid[index_grid(int_heat_x, int_heat_y)].heat,
+                grid[index_grid(int_heat_x + 1, int_heat_y)].heat,
+                grid[index_grid(int_heat_x, int_heat_y + 1)].heat,
+                grid[index_grid(int_heat_x + 1, int_heat_y + 1)].heat,
+                heat_x - int_heat_x,
+                heat_y - int_heat_y
+            );
+            buffer[index_grid(x, y)].heat = old_heat;
         }
     }
     memcpy(grid, buffer, max * sizeof(struct vector));
@@ -201,9 +218,9 @@ static inline void get_character(float x, float y, char *string) {
     string[2] = 0xB1;
     return;
 }
-static inline int get_color(float velocity) {
-    int color = 232 + (int)(velocity / 4);
-    return color > 248 ? 248 : color;
+static inline int get_color(float heat) {
+    float color = 232 + heat;
+    return (int)clampf(color, 232.0f, 248.0f);
 }
 static inline void draw(void) {
     for (int y = 0; y < height; y++) {
@@ -214,7 +231,7 @@ static inline void draw(void) {
 
             char character[3];
             get_character(this_x, this_y, character);
-            const int color = get_color(abs(grid[index].x) + abs(grid[index].y));
+            const int color = get_color(grid[index].heat);
 
             char string[14];
             memcpy(string, "\033[38;5;___m", 11);

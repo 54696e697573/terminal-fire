@@ -81,7 +81,7 @@ int main(int argc, char *argv[]) {
 
     resize();
 
-    const double target_fps = 60.0;
+    const double target_fps = 120.0;
     double target_time = 1.0 / target_fps;
 
     struct termios original;
