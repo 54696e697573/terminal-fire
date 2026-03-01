@@ -1,30 +1,106 @@
 #include "header.h"
 
-#define PROJECTION_ITERATIONS 32
-#define OVERRELAXATION 1.75
+#define INJECTION_RADIUS 2
+#define INJECTION_FORCE 100.0f
+#define MAX_VELOCITY 500.0f
+
+#define ADVECTION_DISTANCE 1.0f
+
+#define PROJECTION_ITERATIONS 128
+#define OVERRELAXATION 1.5f
 
 
 
 static inline size_t index_grid(int x, int y) {
     return x + y * width;
 }
+static inline float clampf(float value, float min, float max) {
+    return value < min ? min : (value > max ? max : value);
+}
 
 static inline void apply_forces(void) {
-    grid[max / 2 + width / 2].y = -1000;
+    for (int y = -INJECTION_RADIUS; y <= INJECTION_RADIUS; y++) {
+        grid[index_grid(1, height / 2 + y)].x = INJECTION_FORCE;
+    }
+
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            const size_t index = index_grid(x, y);
+            grid[index].x = clampf(grid[index].x, -MAX_VELOCITY, MAX_VELOCITY);
+            grid[index].y = clampf(grid[index].y, -MAX_VELOCITY, MAX_VELOCITY); 
+        }
+    }
+}
+
+static inline float lerpf(float a, float b, float t) {
+    return a + (b - a) * t;
+}
+static inline float bilinearf(float a, float b, float c, float d, float t1, float t2) {
+    return lerpf(
+        lerpf(a, b, t1),
+        lerpf(c, d, t1),
+        t2
+    );
+}
+static inline void advect(void) {
+    memset(buffer, 0, max * sizeof(struct vector));
+    for (int y = 0; y < height - 1; y++) {
+        for (int x = 0; x < width - 1; x++) {
+            const float x_velocity = (grid[index_grid(x, y)].x + grid[index_grid(x + 1, y)].x) / 2;
+            const float y_velocity = (grid[index_grid(x, y)].y + grid[index_grid(x, y + 1)].y) / 2;
+            const float old_x = clampf(x + 0.5 - x_velocity * deltatime * ADVECTION_DISTANCE, 0.5f, width - 3);
+            const float old_y = clampf(y + 0.5 - y_velocity * deltatime * ADVECTION_DISTANCE, 0.5f, height - 3);
+
+            const float u_x = old_x;
+            const float u_y = old_y - 0.5f;
+            const float v_x = old_x - 0.5f;
+            const float v_y = old_y;
+            const int int_u_x = (int)u_x;
+            const int int_u_y = (int)u_y;
+            const int int_v_x = (int)v_x;
+            const int int_v_y = (int)v_y;
+
+            const float old_x_velocity = bilinearf(
+                grid[index_grid(int_u_x, int_u_y)].x,
+                grid[index_grid(int_u_x + 1, int_u_y)].x,
+                grid[index_grid(int_u_x, int_u_y + 1)].x,
+                grid[index_grid(int_u_x + 1, int_u_y + 1)].x,
+                u_x - int_u_x,
+                u_y - int_u_y
+            );
+            const float old_y_velocity = bilinearf(
+                grid[index_grid(int_v_x, int_v_y)].y,
+                grid[index_grid(int_v_x + 1, int_v_y)].y,
+                grid[index_grid(int_v_x, int_v_y + 1)].y,
+                grid[index_grid(int_v_x + 1, int_v_y + 1)].y,
+                v_x - int_v_x,
+                v_y - int_v_y
+            );
+
+            buffer[index_grid(x, y)].x     += old_x_velocity / 2;
+            buffer[index_grid(x + 1, y)].x += old_x_velocity / 2;
+            buffer[index_grid(x, y)].y     += old_y_velocity / 2;
+            buffer[index_grid(x, y + 1)].y += old_y_velocity / 2;
+        }
+    }
+    memcpy(grid, buffer, max * sizeof(struct vector));
 }
 
 static inline void project(void) {
     for (int iteration = 0; iteration < PROJECTION_ITERATIONS; iteration++) {
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                struct vector * const this  = grid + index_grid(x, y);
-                struct vector * const right = grid + index_grid(x + 1, y);
-                struct vector * const down  = grid + index_grid(x, y + 1);
+                struct vector * right = NULL;
+                struct vector * down  = NULL;
 
                 const bool up_edge    = y == 0;
                 const bool right_edge = x == width - 1;
                 const bool down_edge  = y == height - 1;
                 const bool left_edge  = x == 0;
+
+                struct vector * this = grid + index_grid(x, y);
+                if (!right_edge) right = grid + index_grid(x + 1, y);
+                if (!down_edge) down  = grid + index_grid(x, y + 1);
 
                 const int edge_count = 4 - (up_edge + right_edge + down_edge + left_edge);
 
@@ -42,31 +118,6 @@ static inline void project(void) {
                 if (!left_edge)  this->x  += force;
                 if (!up_edge)    this->y  += force;
             }
-        }
-    }
-}
-
-static inline void advect(void) {
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            struct vector * const this  = grid + index_grid(x, y);
-            struct vector * const right = grid + index_grid(x + 1, y);
-            struct vector * const down  = grid + index_grid(x, y + 1);
-
-            float x_velocity = (this->x - right->x) / 2;
-            float y_velocity = (this->y - down->y) / 2;
-            float x_offset = x + 0.5 + x_velocity * deltatime;
-            float y_offset = y + 0.5 + y_velocity * deltatime;
-            int x_floored = floorf(x_offset);
-            int y_floored = floorf(y_offset);
-            float in_x = x_offset - x_floored;
-            float in_y = y_offset - y_floored;
-
-            struct vector * const new_this  = grid + index_grid(x_floored, y_floored);
-            struct vector * const new_right = grid + index_grid(x_floored + 1, y_floored);
-            struct vector * const new_down  = grid + index_grid(x, y + 1);
-
-            
         }
     }
 }
@@ -98,6 +149,7 @@ static inline void get_character(float x, float y, char *string) {
                 string[0] = 0xE2;
                 string[1] = 0x86;
                 string[2] = 0x93;
+                return;
             }
             string[0] = 0xE2;
             string[1] = 0x86;
@@ -150,7 +202,7 @@ static inline void get_character(float x, float y, char *string) {
     return;
 }
 static inline int get_color(float velocity) {
-    int color = 232 + (int)(velocity / 100 * 24);
+    int color = 232 + (int)(velocity / 4);
     return color > 248 ? 248 : color;
 }
 static inline void draw(void) {
@@ -162,12 +214,7 @@ static inline void draw(void) {
 
             char character[3];
             get_character(this_x, this_y, character);
-            const int color = get_color(
-                fabsf(this_x) +
-                fabsf(this_y) +
-                fabsf(grid[index_grid(x + 1, y)].x) +
-                fabsf(grid[index_grid(x, y + 1)].y)
-            );
+            const int color = get_color(abs(grid[index].x) + abs(grid[index].y));
 
             char string[14];
             memcpy(string, "\033[38;5;___m", 11);
@@ -187,8 +234,8 @@ static inline void draw(void) {
 
 void tick(void) {
     apply_forces();
+    advect();
     project();
-    //advect();
 
     draw();
 }

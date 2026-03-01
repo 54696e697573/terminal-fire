@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
         double needed = target_time - frame_time;
         if (needed > 0) sleep_time(needed);
 
-        deltatime = frame_time > target_time ? frame_time : target_time;
+        deltatime = target_time;
     }
 
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &original);
