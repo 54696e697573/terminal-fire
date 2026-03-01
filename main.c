@@ -76,8 +76,8 @@ int main(int argc, char *argv[]) {
         if (strcmp(argv[index], "-a") == 0) ARROWS = true;
     }
 
-    assert(signal(SIGWINCH, set_resize_signal) == 0);
-    assert(signal(SIGINT, exit_program) == 0);
+    assert(signal(SIGWINCH, set_resize_signal) != SIG_ERR);
+    assert(signal(SIGINT, exit_program) != SIG_ERR);
 
     resize();
 
