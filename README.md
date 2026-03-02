@@ -1,9 +1,9 @@
 # terminal-fire
 
-A **fire** terminal fluid simulation for POSIX systems (Unix systems + MacOs)
+A **fire** terminal fluid simulation for POSIX systems (Mainly Linux and macOS)
 
 # documentation
 
-Run with the *-a* flag for arrows instead of the default streamlines
+Run with the *-a* flag for arrows or *-s* for streamlines
+Compile with GCC: ```gcc main.c tick.c -lm -o name```
 
-That's kinda it. Enjoy!

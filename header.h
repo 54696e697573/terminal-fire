@@ -35,6 +35,11 @@ extern struct vector *grid;
 extern struct vector *buffer;
 extern char *frame;
 
-extern bool ARROWS;
+enum modes {
+    ARROWS,
+    STREAMLINES,
+    BLOCKS
+};
+extern enum modes mode;
 
 #endif

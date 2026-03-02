@@ -1,11 +1,12 @@
 #include "header.h"
 
-#define INJECTION_RADIUS 2
-#define INJECTION_FORCE 100.0f
+#define INJECTION_RADIUS 4
+#define INJECTION_FORCE 10.0f
 #define INJECTION_HEAT 10.0f
-#define MAX_VELOCITY 500.0f
+#define MAX_VELOCITY 1000.0f
+#define BOUYANCY 0.01f
 
-#define ADVECTION_DISTANCE 1.0f
+#define ADVECTION_DISTANCE 4.0f
 
 #define PROJECTION_ITERATIONS 128
 #define OVERRELAXATION 1.5f
@@ -20,9 +21,9 @@ static inline float clampf(float value, float min, float max) {
 }
 
 static inline void apply_forces(void) {
-    for (int y = -INJECTION_RADIUS; y <= INJECTION_RADIUS; y++) {
-        grid[index_grid(1, height / 2 + y)].x = INJECTION_FORCE;
-        grid[index_grid(1, height / 2 + y)].heat = INJECTION_HEAT;
+    for (int x = -INJECTION_RADIUS; x <= INJECTION_RADIUS; x++) {
+        grid[index_grid(width / 2 + x, height - 2)].y = -INJECTION_FORCE;
+        grid[index_grid(width / 2 + x, height - 2)].heat = INJECTION_HEAT;
     }
 
     for (int y = 0; y < height; y++) {
@@ -32,12 +33,20 @@ static inline void apply_forces(void) {
             grid[index].y = clampf(grid[index].y, -MAX_VELOCITY, MAX_VELOCITY); 
         }
     }
+
+    for (int y = 0; y < height - 1; y++) {
+        for (int x = 0; x < width - 1; x++) {
+            float force = grid[index_grid(x, y)].heat * BOUYANCY;
+            grid[index_grid(x, y)].y -= force / 2;
+            grid[index_grid(x, y + 1)].y -= force / 2;
+        }
+    }
 }
 
 static inline float lerpf(float a, float b, float t) {
     return a + (b - a) * t;
 }
-static inline float bilinearf(float a, float b, float c, float d, float t1, float t2) {
+static inline float bilinear(float a, float b, float c, float d, float t1, float t2) {
     return lerpf(
         lerpf(a, b, t1),
         lerpf(c, d, t1),
@@ -62,7 +71,7 @@ static inline void advect(void) {
             const int int_v_x = (int)v_x;
             const int int_v_y = (int)v_y;
 
-            const float old_x_velocity = bilinearf(
+            const float old_x_velocity = bilinear(
                 grid[index_grid(int_u_x, int_u_y)].x,
                 grid[index_grid(int_u_x + 1, int_u_y)].x,
                 grid[index_grid(int_u_x, int_u_y + 1)].x,
@@ -70,7 +79,7 @@ static inline void advect(void) {
                 u_x - int_u_x,
                 u_y - int_u_y
             );
-            const float old_y_velocity = bilinearf(
+            const float old_y_velocity = bilinear(
                 grid[index_grid(int_v_x, int_v_y)].y,
                 grid[index_grid(int_v_x + 1, int_v_y)].y,
                 grid[index_grid(int_v_x, int_v_y + 1)].y,
@@ -89,7 +98,7 @@ static inline void advect(void) {
             const int int_heat_x = (int)heat_x;
             const int int_heat_y = (int)heat_y;
 
-            const float old_heat = bilinearf(
+            const float old_heat = bilinear(
                 grid[index_grid(int_heat_x, int_heat_y)].heat,
                 grid[index_grid(int_heat_x + 1, int_heat_y)].heat,
                 grid[index_grid(int_heat_x, int_heat_y + 1)].heat,
@@ -140,15 +149,15 @@ static inline void project(void) {
 }
 
 static inline void get_character(float x, float y, char *string) {
-    if (x == 0 && y == 0) {
-        string[0] = 0xE3;
-        string[1] = 0x80;
-        string[2] = 0x80;
+    if (abs(x) + abs(y) < 2 && mode != BLOCKS) {
+        string[0] = 0xE2;
+        string[1] = 0x81;
+        string[2] = 0x96;
         return;
     }
     float abs_x = fabsf(x);
     float abs_y = fabsf(y);
-    if (ARROWS) {
+    if (mode == ARROWS) {
         if (abs_x > 2 * abs_y) {
             if (x > 0) {
                 string[0] = 0xE2;
@@ -194,32 +203,35 @@ static inline void get_character(float x, float y, char *string) {
         string[1] = 0x86;
         string[2] = 0x99;
         return;
-    }
-
-    if (abs_x > 2 * abs_y) {
-        string[0] = 0x5F;
-        string[1] = 0xCC;
-        string[2] = 0x80;
-        return;
-    }
-    if (abs_y > 2 * abs_x) {
-        string[0] = 0xE2;
-        string[1] = 0x94;
-        string[2] = 0x82;
-        return;
-    } else if ((x > 0) == (y > 0)) {
+    } else if (mode == STREAMLINES) {
+        if (abs_x > 2 * abs_y) {
+            string[0] = 0xE2;
+            string[1] = 0x94;
+            string[2] = 0x80;
+            return;
+        }
+        if (abs_y > 2 * abs_x) {
+            string[0] = 0xE2;
+            string[1] = 0x94;
+            string[2] = 0x82;
+            return;
+        } else if ((x > 0) == (y > 0)) {
+            string[0] = 0xE2;
+            string[1] = 0x95;
+            string[2] = 0xB2;
+            return;
+        }
         string[0] = 0xE2;
         string[1] = 0x95;
-        string[2] = 0xB2;
+        string[2] = 0xB1;
         return;
     }
     string[0] = 0xE2;
-    string[1] = 0x95;
-    string[2] = 0xB1;
-    return;
+    string[1] = 0x96;
+    string[2] = 0x88;
 }
 static inline int get_color(float heat) {
-    float color = 232 + heat;
+    float color = 232 + heat * 2;
     return (int)clampf(color, 232.0f, 248.0f);
 }
 static inline void draw(void) {
@@ -231,7 +243,16 @@ static inline void draw(void) {
 
             char character[3];
             get_character(this_x, this_y, character);
-            const int color = get_color(grid[index].heat);
+            const char horizontal[3] = { 0xE2, 0x94, 0x80 };
+            const char vertical[3] = { 0xE2, 0x94, 0x82 };
+            const bool draw = mode != STREAMLINES ?
+                true :
+                memcmp(character, horizontal, 3) == 0 ?
+                    true :
+                    memcmp(character, vertical, 3) == 0 ?
+                        x % 2 == 0 :
+                        (x + y) % 2 == 0;
+            const int color = draw ? get_color(grid[index].heat) : 232;
 
             char string[14];
             memcpy(string, "\033[38;5;___m", 11);

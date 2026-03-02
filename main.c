@@ -4,7 +4,7 @@
 
 
 
-bool ARROWS = false;
+enum modes mode = BLOCKS;
 
 volatile bool resize_signal = true;
 volatile bool exit_signal = false;
@@ -73,7 +73,11 @@ static void exit_program(int signal) {
 double deltatime = 0.0;
 int main(int argc, char *argv[]) {
     for (int index = 1; index < argc; index++) {
-        if (strcmp(argv[index], "-a") == 0) ARROWS = true;
+        if (strcmp(argv[index], "-a") == 0) {
+            mode = ARROWS;
+        } else if (strcmp(argv[index], "-s") == 0) {
+            mode = STREAMLINES;
+        }
     }
 
     assert(signal(SIGWINCH, set_resize_signal) != SIG_ERR);
